@@ -34,23 +34,23 @@ class Neural:
 		self.weightToOutputLayer += M * self.cToOutputLayer + N * delta_weight
 		self.cToOutputLayer = np.copy(delta_weight)
 		
-		for i in range(self.hiddenlayerN):
+		for i in range(self.hiddenlayerN-1, -1, -1):
 			
-			if(i == 0):	# When next layer is hidden to output 
+			if(i == self.hiddenlayerN-1):	# When next layer is hidden to output 
 				error = weightToOutputLayers_t.dot(output_deltas.reshape(self.no, 1))		
 			else:
 				error = weightToHiddenLayers_t.dot(hidden_deltas.reshape(self.nh, 1))
 			
-			hidden_deltas = error.reshape(self.nh) * dsigmoid(self.activatedHidden[self.hiddenlayerN - 1 - i])
+			hidden_deltas = error.reshape(self.nh) * dsigmoid(self.activatedHidden[i])
 			
-			if(i == self.hiddenlayerN - 1):	# When current layer is input to hidden layer
+			if(i == 0):	# When current layer is input to hidden layer
 				delta_weight = self.activatedInput.reshape(self.ni, 1).dot(hidden_deltas.reshape(1, self.nh))
 			else:
-				delta_weight = self.activatedHidden[self.hiddenlayerN - 1 - i - 1].reshape(self.nh, 1).dot(hidden_deltas.reshape(1, self.nh))
-			weightToHiddenLayers_t = np.copy(self.weightToHiddenLayers[self.hiddenlayerN - 1 - i ])
+				delta_weight = self.activatedHidden[i - 1].reshape(self.nh, 1).dot(hidden_deltas.reshape(1, self.nh))
+			weightToHiddenLayers_t = np.copy(self.weightToHiddenLayers[i])
 
-			self.weightToHiddenLayers[self.hiddenlayerN - 1 - i] += M * self.cToHiddenLayer[self.hiddenlayerN - 1 - i] + N * delta_weight
-			self.cToHiddenLayer[self.hiddenlayerN - 1- i] = np.copy(delta_weight)
+			self.weightToHiddenLayers[i] += M * self.cToHiddenLayer[i] + N * delta_weight
+			self.cToHiddenLayer[i] = np.copy(delta_weight)
 						
 	def test(self, testX, testY):
 		for j in range(testY.size):
