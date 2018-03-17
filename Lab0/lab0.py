@@ -21,7 +21,7 @@ class Neural:
 		#
 
 		self.weightToHiddenLayers = np.random.randn(self.hiddenlayerN, self.nh, self.nh)	# 3 * 3 * 3
-		self.weightToOutputLayers = np.random.randn(self.no, self.nh)	# 1 * 3
+		self.weightToOutputLayers = np.random.randn(self.nh, self.no)	# 1 * 3
 		#print(self.weightToHiddenLayers)
 
 		self.wih = []
@@ -61,7 +61,7 @@ class Neural:
 		# To incorporate momentum factor, introduce another array for the 'previous change'.
 		#
 		self.cToHiddenLayer = np.zeros((self.hiddenlayerN, self.nh, self.nh))
-		self.cToOutputLayer = np.zeros((self.no, self.nh))
+		self.cToOutputLayer = np.zeros((self.nh, self.no))
 	
 		self.cih = []
 		self.chh = []
@@ -85,19 +85,37 @@ class Neural:
 		
 		weightToOutputLayers_t = np.copy(self.weightToOutputLayers)
 
+		#delta_weight = output_deltas.reshape(self.no, 1).dot((self.activedHidden[self.hiddenlayerN - 1] + np.zeros((self.no, self.nh))))
+		delta_weight = self.activedHidden[self.hiddenlayerN - 1].reshape(self.nh, self.no).dot(output_deltas.reshape(1, self.no))
+		#delta_weight = delta_weight.reshape(self.nh, self.no)
 		
-		delta_weight = (self.activedHidden[self.hiddenlayerN - 1].reshape(3,1) + np.zeros((self.nh, self.no))).dot(output_deltas).reshape(self.no, self.nh)
-		self.weightToOutputLayers = M * self.cToOutputLayer + N * delta_weight
-		self.cToOutputLayer = delta_weight
-		print(output_deltas )
-
-
-		#for i in range(self.hiddenlayerN):
+		self.weightToOutputLayers += M * self.cToOutputLayer + N * delta_weight
+		self.cToOutputLayer = np.copy(delta_weight)
+		#print(delta_weight)
+		
+		# Here error is column vector
+		for i in range(self.hiddenlayerN):
 			# Next Layer is hidden to output part
-		#	if(i == 0):
-		#		error = weightToOutputLayers_t.dot(output_deltas)
-			#else:
-			#	error = self.weightToHiddenLayers[i-1]
+			if(i == 0):
+				#error = output_deltas.dot(np.transpose(weightToOutputLayers_t))
+				#print(weightToOutputLayers_t)
+				#print(output_deltas)
+				error = weightToOutputLayers_t.dot(output_deltas.reshape(self.no, 1))		
+			else:
+				#error = hidden_deltas.dot(np.transpose(weightToHiddenLayers_t))
+				error = weightToHiddenLayers_t.dot(hidden_deltas.reshape(self.nh, 1))
+			#print(error, ',', dsigmoid(self.activedHidden[self.hiddenlayerN - 1 - i]))
+			hidden_deltas = error.reshape(self.nh) * dsigmoid(self.activedHidden[self.hiddenlayerN - 1 - i])
+			#print(hidden_deltas)
+			if(i == self.hiddenlayerN - 1):
+				delta_weight = self.activatedInput.reshape(self.ni, 1).dot(hidden_deltas.reshape(1, self.nh))
+			else:
+				delta_weight = self.activedHidden[self.hiddenlayerN - 1 - i - 1].reshape(self.nh, 1).dot(hidden_deltas.reshape(1, self.nh))
+			weightToHiddenLayers_t = np.copy(self.weightToHiddenLayers[self.hiddenlayerN - 1 - i ])
+			self.weightToHiddenLayers[self.hiddenlayerN - 1 - i] += M * self.cToHiddenLayer[self.hiddenlayerN - 1 - i] + N * delta_weight
+			self.cToHiddenLayer[self.hiddenlayerN - 1- i] = np.copy(delta_weight)
+				
+			#print(error)
 		
 
 
@@ -153,10 +171,14 @@ class Neural:
 		
 
 	# Main testing function. Used after all the training and Backpropagation is completed.
-	def test(self, patterns):
+	def test(self, testX, testY):
+		for j in range(testY.size):
+			print('For input:', testX[j], ' Output -->', self.runNetwork(testX[j]), '\tTarget: ', testY[j])
+		'''
 		for p in patterns:
 			inputs = p[0]
 			print('For input:', p[0], ' Output -->', self.runNetwork(inputs), '\tTarget: ', p[1])
+		'''
 
 
 	# So, runNetwork was needed because, for every iteration over a pattern [] array, we need to feed the values.
@@ -168,21 +190,21 @@ class Neural:
 		np.copyto(self.activatedInput[:feed.size], feed)
 		#self.activatedInput = np.copy(feed)
 		#self.activatedInput[2] = 1
-		print(self.activatedInput)
+		#print(self.activatedInput)
 
 		for i in range(self.hiddenlayerN):
 			# Input Layer to Hidden Layer
 			
 			if(i == 0):
-				temp = self.weightToHiddenLayers[i].dot(self.activatedInput)
+				temp = self.activatedInput.dot(self.weightToHiddenLayers[i])
 				self.activedHidden[0] = sigmoid(temp)
 			else:
-				temp = self.weightToHiddenLayers[i].dot(self.activedHidden[i-1])
+				temp = self.activedHidden[i-1].dot(self.weightToHiddenLayers[i])
 				self.activedHidden[i] = sigmoid(temp)
 		#print(self.activedHidden)
 
 		#print(self.weightToOutputLayers.dot(self.activedHidden[self.hiddenlayerN - 1]))
-		temp = self.weightToOutputLayers.dot(self.activedHidden[self.hiddenlayerN - 1])
+		temp = self.activedHidden[self.hiddenlayerN - 1].dot(self.weightToOutputLayers)
 		self.activedOutput = sigmoid(temp)
 		#print(self.activedOutput)
 
@@ -224,14 +246,16 @@ class Neural:
 
 
 	def trainNetwork(self, trainX, trainY):
-		for i in range(1):
+		for i in range(3000):
 			# Run the network for every set of input values, get the output values and Backpropagate them.
 			for j in range(trainY.size):
 				inputs = trainX[j]
 				out = self.runNetwork(inputs)
 				expected = trainY[j]
-				#print(out ,',' ,expected)
+				#print(self.weightToOutputLayers)
+				#print(out ,',' ,expected, ',' , expected - out)
 				self.backpropagate(inputs,expected,out)
+		self.test(trainX, trainY)
 		'''
 			for p in pattern:
 				# Run the network for every tuple in p.
@@ -268,8 +292,11 @@ def test(X):
 def main():
 	# take the input pattern as a map. Suppose we are working for AND gate.
 
-	A = np.array([1,1,2,3])
-	B = test(A)
+	A = np.array([[1,1,1]])
+	B = np.array([[1,2,3]])
+
+	print(A.reshape(3,1).dot(B))
+	#print( A*B)
 	#print(B)
 
 	X = np.array([
