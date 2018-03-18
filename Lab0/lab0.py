@@ -7,7 +7,7 @@ class Neural:
 		self.nh=3	# Hidden layer node
 		self.no=1	# Output layer node
 		self.hiddenlayerN = 2	# Amount of Hidden layer
-		self.epoch = 10000
+		self.epoch = 30000
 
 		self.weightToHiddenLayers = np.random.randn(self.hiddenlayerN, self.nh, self.nh)	# 2 * 3 * 3
 		self.weightToOutputLayer = np.random.randn(self.nh, self.no)	# 1 * 3
@@ -21,7 +21,7 @@ class Neural:
 		self.cToOutputLayer = np.zeros((self.nh, self.no))
 	
 	# M : momentum parm, N : learning rate
-	def backpropagate(self, inputs, expected, output, N=0.5, M=0.1):
+	def backpropagate(self, inputs, expected, output, N=0.05, M=0.5):
 
 		# Reference : Wiki - backpropagation loss function definition		
 		error = expected - output
@@ -31,7 +31,7 @@ class Neural:
 
 		delta_weight = self.activatedHidden[self.hiddenlayerN - 1].reshape(self.nh, self.no).dot(output_deltas.reshape(1, self.no))
 		
-		self.weightToOutputLayer += M * self.cToOutputLayer + N * delta_weight
+		self.weightToOutputLayer += M * self.cToOutputLayer - N * delta_weight
 		self.cToOutputLayer = np.copy(delta_weight)
 		
 		for i in range(self.hiddenlayerN-1, -1, -1):
@@ -49,12 +49,12 @@ class Neural:
 				delta_weight = self.activatedHidden[i - 1].reshape(self.nh, 1).dot(hidden_deltas.reshape(1, self.nh))
 			weightToHiddenLayers_t = np.copy(self.weightToHiddenLayers[i])
 
-			self.weightToHiddenLayers[i] += M * self.cToHiddenLayer[i] + N * delta_weight
+			self.weightToHiddenLayers[i] += M * self.cToHiddenLayer[i] - N * delta_weight
 			self.cToHiddenLayer[i] = np.copy(delta_weight)
 						
 	def test(self, testX, testY):
 		for j in range(testY.size):
-			print('For input:', testX[j], ' Output -->', self.runNetwork(testX[j]), '\tTarget: ', testY[j])
+			print('Input data:', testX[j], ', Result: ', self.runNetwork(testX[j]), '\tTarget: ', testY[j])
 	
 	def runNetwork(self, feed):
 		if(feed.size != self.ni-1):
