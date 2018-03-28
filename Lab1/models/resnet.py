@@ -105,9 +105,15 @@ class ResNet(nn.Module):
 def ResNet20():
     return ResNet(BasicBlock, [3,3,3])
 
+def ResNet56():
+    return ResNet(BasicBlock, [9,9,9])
+
+def ResNet110():
+    return ResNet(BasicBlock, [18,18,18])
+
 def test():
     net = ResNet20()
     y = net(Variable(torch.randn(1,3,32,32)))
     print(y.size())
 
-test()
+#test()

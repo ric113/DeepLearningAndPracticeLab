@@ -14,9 +14,15 @@ import os
 import argparse
 
 from models.resnet import ResNet20
-#from models import *
+from models.resnet import ResNet56
+from models.resnet import ResNet110
 from utils import progress_bar
 from torch.autograd import Variable
+
+import matplotlib
+matplotlib.use('Agg')   # for work stattion
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -61,17 +67,8 @@ if args.resume:
     start_epoch = checkpoint['epoch']
 else:
     print('==> Building model..')
-    # net = VGG('VGG19')
-    net = ResNet20()
-    # net = PreActResNet18()
-    # net = GoogLeNet()
-    # net = DenseNet121()
-    # net = ResNeXt29_2x64d()
-    # net = MobileNet()
-    # net = MobileNetV2()
-    # net = DPN92()
-    # net = ShuffleNetG2()
-    # net = SENet18()
+    #net = ResNet20()
+    net = ResNet110()
 
 if use_cuda:
     net.cuda()
@@ -82,6 +79,10 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=1e-4)
 
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[81,122], gamma=0.1)
+
+epochs = []
+trainAccs = []
+testAccs = []
 
 # Training
 def train(epoch):
@@ -107,6 +108,8 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        
+    trainAccs.append((100.*(1.0-correct/total)))
 
 def test(epoch):
     global best_acc
@@ -131,6 +134,8 @@ def test(epoch):
 
     # Save checkpoint.
     acc = 100.*correct/total
+    testAccs.append((100.*(1.0-correct/total)))
+
     if acc > best_acc:
         print('Saving..')
         state = {
@@ -143,7 +148,38 @@ def test(epoch):
         torch.save(state, './checkpoint/ckpt.t7')
         best_acc = acc
 
+def plotResult():
+    # Training
+    plt.plot(epochs, trainAccs)
+    plt.xlabel('epoch')
+    plt.ylabel('error rate(%)')
+    plt.title('Training Error rate')
+    plt.savefig("training.png")
+
+    # Testing
+    plt.plot(epochs, testAccs)
+    plt.xlabel('epoch')
+    plt.ylabel('error rate(%)')
+    plt.title('Testing Error rate')
+    plt.savefig("testing.png")
+
+    # Both
+    plt.plot(epochs, trainAccs, color="green")
+    plt.plot(epochs, testAccs, color="red")
+    plt.xlabel('epoch')
+    plt.ylabel('error rate(%)')
+    plt.title('Error rate')   
+    green_patch = mpatches.Patch(color='green', label='training')
+    red_patch = mpatches.Patch(color='red', label='testing')
+    plt.legend(handles=[red_patch, green_patch])
+    plt.savefig("both.png")
+
+
 
 for epoch in range(start_epoch, start_epoch+164):
+    scheduler.step()
+    epochs.append(epoch)
     train(epoch)
     test(epoch)
+
+plotResult()
