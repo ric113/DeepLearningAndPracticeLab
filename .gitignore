@@ -1,1 +1,4 @@
 *-env/
+sample.py
+test.py
+*.zip
