@@ -16,8 +16,15 @@ import argparse
 from models.resnet import ResNet20
 from models.resnet import ResNet56
 from models.resnet import ResNet110
+from models.plainCNN import plainCNN20 
+from models.plainCNN import plainCNN56
+from models.plainCNN import plainCNN110
+
 from utils import progress_bar
 from torch.autograd import Variable
+
+import numpy as np
+import pandas as pd
 
 import matplotlib
 matplotlib.use('Agg')   # for work stattion
@@ -28,11 +35,15 @@ import matplotlib.patches as mpatches
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
+parser.add_argument('--model', default="RESNET", type=str, help='model setting')
+parser.add_argument('--layer', default=20, type=int, help='layer')
 args = parser.parse_args()
 
 use_cuda = torch.cuda.is_available()
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+
+print('==> Network :' + args.model + ', Layer :' + str(args.layer))
 
 # Data
 print('==> Preparing data..')
@@ -67,8 +78,20 @@ if args.resume:
     start_epoch = checkpoint['epoch']
 else:
     print('==> Building model..')
-    #net = ResNet20()
-    net = ResNet110()
+    if(args.model == "RESNET"):
+        if(args.layer == 20):
+            net = ResNet20()
+        elif(args.layer == 56):
+            net = ResNet56()
+        elif(args.layer == 110):
+            net = ResNet110()
+    elif(args.model == "CNN"):
+        if(args.layer == 20):
+            net = plainCNN20()
+        elif(args.layer == 56):
+            net = plainCNN56()
+        elif(args.layer == 110):
+            net = plainCNN110()
 
 if use_cuda:
     net.cuda()
@@ -80,9 +103,10 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=1
 
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[81,122], gamma=0.1)
 
-epochs = []
 trainAccs = []
 testAccs = []
+trainLoss = []
+testLoss = []
 
 # Training
 def train(epoch):
@@ -91,6 +115,8 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
+    batch = 0
+
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -108,8 +134,10 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        batch = batch_idx
         
-    trainAccs.append((100.*(1.0-correct/total)))
+    trainAccs.append(100.*(1.0-correct/total))
+    trainLoss.append(train_loss/(batch+1))
 
 def test(epoch):
     global best_acc
@@ -117,6 +145,7 @@ def test(epoch):
     test_loss = 0
     correct = 0
     total = 0
+    batch = 0
     for batch_idx, (inputs, targets) in enumerate(testloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
@@ -131,10 +160,13 @@ def test(epoch):
 
         progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        
+        batch = batch_idx
 
     # Save checkpoint.
     acc = 100.*correct/total
-    testAccs.append((100.*(1.0-correct/total)))
+    testAccs.append(100.*(1.0-correct/total))
+    testLoss.append(test_loss/(batch+1))
 
     if acc > best_acc:
         print('Saving..')
@@ -148,6 +180,7 @@ def test(epoch):
         torch.save(state, './checkpoint/ckpt.t7')
         best_acc = acc
 
+'''
 def plotResult():
     # Training
     plt.plot(epochs, trainAccs)
@@ -155,6 +188,7 @@ def plotResult():
     plt.ylabel('error rate(%)')
     plt.title('Training Error rate')
     plt.savefig("training.png")
+    plt.clf()
 
     # Testing
     plt.plot(epochs, testAccs)
@@ -162,6 +196,7 @@ def plotResult():
     plt.ylabel('error rate(%)')
     plt.title('Testing Error rate')
     plt.savefig("testing.png")
+    plt.clf()
 
     # Both
     plt.plot(epochs, trainAccs, color="green")
@@ -173,13 +208,22 @@ def plotResult():
     red_patch = mpatches.Patch(color='red', label='testing')
     plt.legend(handles=[red_patch, green_patch])
     plt.savefig("both.png")
+'''
 
+def log():
+    df = pd.DataFrame()
 
+    df['train Error rate'] = trainAccs
+    df['train Loss'] = trainLoss
+    df['test Error rate'] = testAccs
+    df['test Loss'] = testLoss
+
+    df.to_csv('log_' + args.model + str(args.layer) + '.csv')
 
 for epoch in range(start_epoch, start_epoch+164):
     scheduler.step()
-    epochs.append(epoch)
     train(epoch)
     test(epoch)
 
-plotResult()
+#plotResult()
+log()
