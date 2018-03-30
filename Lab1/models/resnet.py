@@ -76,7 +76,8 @@ class ResNet(nn.Module):
         self.layer1 = self._make_layer(block, 16, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, 32, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
-        self.linear = nn.Linear(64*block.expansion, num_classes)
+        # Linear layer - Parm 1 : 前一層的輸出數目, Parm 2 : 此層的輸出(也就是有幾個neuron)
+         self.linear = nn.Linear(64*block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)

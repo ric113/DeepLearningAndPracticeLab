@@ -95,12 +95,15 @@ else:
 
 if use_cuda:
     net.cuda()
+    # parallelizes the application
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
 
+# Setting loss funtion
 criterion = nn.CrossEntropyLoss()
+# Setting the way to update weight
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=1e-4)
-
+# Setting dynamic learning rate
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[81,122], gamma=0.1)
 
 trainAccs = []
@@ -119,13 +122,13 @@ def train(epoch):
 
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         if use_cuda:
-            inputs, targets = inputs.cuda(), targets.cuda()
-        optimizer.zero_grad()
+            inputs, targets = inputs.cuda(), targets.cuda() # .cuda() get data from gpu
+        optimizer.zero_grad()   # init. all weights' gradient
         inputs, targets = Variable(inputs), Variable(targets)
         outputs = net(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
-        optimizer.step()
+        optimizer.step() # Update weights
 
         train_loss += loss.data[0]
         _, predicted = torch.max(outputs.data, 1)
@@ -149,6 +152,7 @@ def test(epoch):
     for batch_idx, (inputs, targets) in enumerate(testloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda()
+        # volatile = True, 用完即丟, 加快速度
         inputs, targets = Variable(inputs, volatile=True), Variable(targets)
         outputs = net(inputs)
         loss = criterion(outputs, targets)
