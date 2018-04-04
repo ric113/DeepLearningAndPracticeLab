@@ -184,36 +184,6 @@ def test(epoch):
         torch.save(state, './checkpoint/ckpt.t7')
         best_acc = acc
 
-'''
-def plotResult():
-    # Training
-    plt.plot(epochs, trainAccs)
-    plt.xlabel('epoch')
-    plt.ylabel('error rate(%)')
-    plt.title('Training Error rate')
-    plt.savefig("training.png")
-    plt.clf()
-
-    # Testing
-    plt.plot(epochs, testAccs)
-    plt.xlabel('epoch')
-    plt.ylabel('error rate(%)')
-    plt.title('Testing Error rate')
-    plt.savefig("testing.png")
-    plt.clf()
-
-    # Both
-    plt.plot(epochs, trainAccs, color="green")
-    plt.plot(epochs, testAccs, color="red")
-    plt.xlabel('epoch')
-    plt.ylabel('error rate(%)')
-    plt.title('Error rate')   
-    green_patch = mpatches.Patch(color='green', label='training')
-    red_patch = mpatches.Patch(color='red', label='testing')
-    plt.legend(handles=[red_patch, green_patch])
-    plt.savefig("both.png")
-'''
-
 def log():
     df = pd.DataFrame()
 
