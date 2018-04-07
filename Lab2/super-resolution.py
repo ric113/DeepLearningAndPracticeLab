@@ -17,10 +17,15 @@ from skimage.measure import compare_psnr
 from models.downsampler import Downsampler
 
 from utils.sr_utils import *
+import argparse
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark =True
 dtype = torch.cuda.FloatTensor
+
+parser = argparse.ArgumentParser(description='Deep image prior - super resolution')
+parser.add_argument('--image', '-i', type=str, default='zebra_GT.png', help='image file name to get super resolution(e.g. a.png)')
+args = parser.parse_args()
 
 imsize = -1 
 factor = 4 # 8
@@ -29,7 +34,7 @@ PLOT = True
 
 # To produce images from the paper we took *_GT.png images from LapSRN viewer for corresponding factor,
 # e.g. x4/zebra_GT.png for factor=4, and x8/zebra_GT.png for factor=8 
-path_to_image = 'data/sr/zebra_GT.png'
+path_to_image = 'data/sr/' + args.image
 
 
 # Starts here
@@ -127,6 +132,7 @@ optimize(OPTIMIZER, p, closure, LR, num_iter)
 out_HR_np = np.clip(var_to_np(net(net_input)), 0, 1)
 result_deep_prior = put_in_center(out_HR_np, imgs['orig_np'].shape[1:])
 
+print('Result PSNR:' + str(compare_psnr(imgs['HR_np'], out_HR_np)))
 # For the paper we acually took `_bicubic.png` files from LapSRN viewer and used `result_deep_prior` as our result
 plot_image_grid('SR_RES', [imgs['HR_np'],
                  imgs['bicubic_np'],
