@@ -29,6 +29,12 @@ PLOT = True
 sigma = 25
 sigma_ = sigma/255.
 
+parser = argparse.ArgumentParser(description='Deep image prior - Compare noise impedance')
+parser.add_argument('--image', '-i', type=str, default='GT_f16.png',help='image file name to compare(e.g. GT_f16.png)')
+args = parser.parse_args()
+
+targetImg = args.image
+
 ## deJPEG 
 fname = 'data/denoising/F16_GT.png'
 
