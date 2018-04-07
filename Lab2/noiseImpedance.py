@@ -13,6 +13,7 @@ import sys
 import random
 from PIL import Image
 import math
+import argparse
 
 import torch
 import torch.optim
@@ -34,38 +35,32 @@ parser.add_argument('--image', '-i', type=str, default='GT_f16.png',help='image 
 args = parser.parse_args()
 
 targetImg = args.image
+filePath = 'data/denoising/' + targetImg
 
-## deJPEG 
-fname = 'data/denoising/F16_GT.png'
+# pure Img
+img_pil = crop_image(get_image(filePath, imsize)[0], d=32)
+img_np = pil_to_np(img_pil)
 
-## denoising
-        
-if fname == 'data/denoising/F16_GT.png':
-    # Add synthetic noise
-    img_pil = crop_image(get_image(fname, imsize)[0], d=32)
-    img_np = pil_to_np(img_pil)
-    
-    img_noisy_pil, img_noisy_np = get_noisy_image(img_np, sigma_)
-    
-    #if PLOT:
-        #plot_image_grid([img_np, img_noisy_np], 4, 6)
-else:
-    assert False
+WIDTH = img_pil.size[0]
+HEIGHT = img_pil.size[1]
+
+
+i = 0   # for closure() 
+
 
 def getShuffleImg(img_pil):
     BLOCKLEN = 1 # Adjust and be careful here.
 
-    width, height = img_pil.size
 
-    xblock = width / BLOCKLEN
-    yblock = height / BLOCKLEN
+    xblock = WIDTH / BLOCKLEN
+    yblock = HEIGHT / BLOCKLEN
     blockmap = [(xb*BLOCKLEN, yb*BLOCKLEN, (xb+1)*BLOCKLEN, (yb+1)*BLOCKLEN)
             for xb in range(math.floor(xblock)) for yb in range(math.floor(yblock))]
 
     shuffle = list(blockmap)
     random.shuffle(shuffle)
 
-    img_shf = Image.new(img_pil.mode, (width, height))
+    img_shf = Image.new(img_pil.mode, (WIDTH, HEIGHT))
     for box, sbox in zip(blockmap, shuffle):
         c = img_pil.crop(sbox)
         img_shf.paste(c, box)
@@ -74,39 +69,40 @@ def getShuffleImg(img_pil):
     return np_img_shf
 
 def getNoiseImg():
-    noise01 = np.float32(np.random.uniform(0,1,(3, 512, 512)))
+    noise01 = np.float32(np.random.uniform(0,1,(3, WIDTH, HEIGHT)))
     return noise01
 
-i = 0
+def getNetwork():
 
-def buildAndRunNetwork(np_targetImg):
-
-    var_targetImg = np_to_var(np_targetImg).type(dtype)
-    INPUT = 'noise' # 'meshgrid'
     pad = 'reflection'
-    OPT_OVER = 'net' # 'net,input'
-
-    reg_noise_std = 1./30. # set to 1./20. for sigma=50
-    LR = 0.01
-
-    OPTIMIZER='adam' # 'LBFGS'
-    show_every = 500
-
-    num_iter=2400
     input_depth = 3
     figsize = 5 
-    
-    net = skip(
-                input_depth, 3, 
-                num_channels_down = [8, 16, 32, 64, 128], 
-                num_channels_up   = [8, 16, 32, 64, 128],
-                num_channels_skip = [0, 0, 0, 4, 4], 
-                upsample_mode='bilinear',
-                need_sigmoid=True, need_bias=True, pad=pad, act_fun='LeakyReLU')
 
-    net = net.type(dtype)
+    net = skip(
+        input_depth, 3, 
+        num_channels_down = [8, 16, 32, 64, 128], 
+        num_channels_up   = [8, 16, 32, 64, 128],
+        num_channels_skip = [0, 0, 0, 4, 4], 
+        upsample_mode='bilinear',
+        need_sigmoid=True, need_bias=True, pad=pad, act_fun='LeakyReLU').type(dtype)
     
-    net_input = get_noise(input_depth, INPUT, (img_pil.size[1], img_pil.size[0])).type(dtype).detach()
+    return net
+
+def runNetwork(case, np_targetImg):
+    print('Current case : ' + case)
+    # Param 
+    INPUT = 'noise' # 'meshgrid'
+    OPT_OVER = 'net' # 'net,input'
+    reg_noise_std = 1./30. # set to 1./20. for sigma=50
+    LR = 0.01
+    OPTIMIZER='adam' # 'LBFGS'
+    show_every = 500
+    num_iter=2400
+    input_depth = 3
+
+    net = getNetwork()
+
+    net_input = get_noise(input_depth, INPUT, (HEIGHT, WIDTH)).type(dtype).detach()
 
     # Compute number of parameters
     s  = sum([np.prod(list(p.size())) for p in net.parameters()]); 
@@ -115,10 +111,11 @@ def buildAndRunNetwork(np_targetImg):
     # Loss
     mse = torch.nn.MSELoss().type(dtype)
 
-    # img_noisy_var = np_to_var(img_noisy_np).type(dtype)
-
     net_input_saved = net_input.data.clone()
     noise = net_input.data.clone()
+
+    var_targetImg = np_to_var(np_targetImg).type(dtype)
+   
 
     loss = []
     def closure():
@@ -139,24 +136,40 @@ def buildAndRunNetwork(np_targetImg):
         loss.append(total_loss.data[0])
         
         return total_loss
-
+    
     p = get_params(OPT_OVER, net, net_input)
     optimize(OPTIMIZER, p, closure, LR, num_iter)
+    out_np = var_to_np(net(net_input))
+    print('---')
+    plot_image_grid(case, [np.clip(out_np, 0, 1), np_targetImg], factor=13)
+
+    global i
+    i = 0
+
     return loss
 
+def main():
+    loss_img = runNetwork('PureImg', img_np)
+    loss_img_noise = runNetwork('ImgWithNoise', img_noisy_np)
+    loss_img_shuffle = runNetwork('SuffuledImg', img_shf_np)
+    loss_noise = runNetwork('01NoiseImg', img_01noise_np)
 
-loss_img = buildAndRunNetwork(img_np)
-loss_img_noise = buildAndRunNetwork(img_noisy_np)
+    df = pd.DataFrame()
+
+    df['img'] = loss_img
+    df['img_noise'] = loss_img_noise
+    df['img_shuffle'] = loss_img_shuffle
+    df['noise'] = loss_noise
+
+    df.to_csv('log.csv')
+
+# noisy Img
+img_noisy_pil, img_noisy_np = get_noisy_image(img_np, sigma_)
+
+# suffled Img
 img_shf_np = getShuffleImg(img_pil)
-loss_img_shuffle = buildAndRunNetwork(img_shf_np)
-noise_np = getNoiseImg()
-loss_noise = buildAndRunNetwork(noise_np)
 
-df = pd.DataFrame()
+# U(0, 1) noise Img
+img_01noise_np = getNoiseImg()
 
-df['img'] = loss_img
-df['img_noise'] = loss_img_noise
-df['img_shuffle'] = loss_img_shuffle
-df['noise'] = loss_noise
-
-df.to_csv('log.csv')
+main()
