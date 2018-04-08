@@ -52,7 +52,7 @@ reg_noise_std = 1./30. # set to 1./20. for sigma=50
 LR = 0.01
 
 OPTIMIZER='adam' # 'LBFGS'
-show_every = 500
+show_every = 300
 
 # build network 
 num_iter=1800
@@ -80,7 +80,7 @@ img_noisy_var = np_to_var(img_noisy_np).type(dtype)
 net_input_saved = net_input.data.clone()
 noise = net_input.data.clone()
 
-
+results = []
 i = 0
 def closure():
     
@@ -95,16 +95,26 @@ def closure():
     total_loss.backward()
         
     print ('Iteration %05d    Loss %f' % (i, total_loss.data[0]), '\r', end='')
-    if  PLOT and i % show_every == 0:
+    if  PLOT and (i+1) % show_every == 0:
         out_np = var_to_np(out)
-        plot_image_grid(str(i) + 'th_iter', [np.clip(out_np, 0, 1)], factor=figsize, nrow=1)
+        results.append(out_np)
+        #plot_image_grid(str(i) + 'th_iter', [np.clip(out_np, 0, 1)], factor=figsize, nrow=1)
         
     i += 1
 
     return total_loss
 
+
+
 p = get_params(OPT_OVER, net, net_input)
 optimize(OPTIMIZER, p, closure, LR, num_iter)
+
+if PLOT:
+    j = num_iter / show_every   
+    k = int(j / 3)
+
+    for r in range(k):
+        plot_image_grid('fig_'+ str(r), [np.clip(results[r * 3], 0, 1),np.clip(results[r * 3 + 1], 0, 1) ,np.clip(results[r * 3+2], 0, 1)], factor=20)
 
 out_np = var_to_np(net(net_input))
 q = plot_image_grid('RESvsNOISY', [np.clip(out_np, 0, 1), img_noisy_np], factor=13)

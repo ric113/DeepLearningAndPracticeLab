@@ -2,8 +2,10 @@
 
 ## Objective
 * Reproduce the experiments of the paper "deep image prior"
+* [Lab2 - Deep image prior](./Lab2_deep_image_prior.pdf)
 
 ## Report
+* [Lab2 Report](./Report.pdf)
 
 ## Resource
 * [GitHub - Deep image prior](https://github.com/DmitryUlyanov/deep-image-prior)

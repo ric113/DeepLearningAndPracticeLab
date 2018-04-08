@@ -89,6 +89,8 @@ img_LR_var = np_to_var(imgs['LR_np']).type(dtype)
 downsampler = Downsampler(n_planes=3, factor=factor, kernel_type=KERNEL_TYPE, phase=0.5, preserve_size=True).type(dtype)
 
 
+results = []
+
 def closure():
     global i
     
@@ -113,9 +115,10 @@ def closure():
     # History
     psnr_history.append([psnr_LR, psnr_HR])
     
-    if PLOT and i % 500 == 0:
+    if PLOT and (i + 1) % 300 == 0:
         out_HR_np = var_to_np(out_HR)
-        plot_image_grid('SR_' + str(i) + '_iter',[imgs['HR_np'], imgs['bicubic_np'], np.clip(out_HR_np, 0, 1)], factor=13, nrow=3)
+        results.append(out_HR_np)
+        # plot_image_grid('SR_' + str(i) + '_iter',[imgs['HR_np'], imgs['bicubic_np'], np.clip(out_HR_np, 0, 1)], factor=13, nrow=3)
 
     i += 1
     
@@ -129,11 +132,20 @@ i = 0
 p = get_params(OPT_OVER, net, net_input)
 optimize(OPTIMIZER, p, closure, LR, num_iter)
 
+if PLOT:
+    j = num_iter / 300   
+    k = int(j / 3)
+
+    for r in range(k):
+        plot_image_grid('SR_fig_'+ str(r), [np.clip(results[r * 3], 0, 1),np.clip(results[r * 3 + 1], 0, 1) ,np.clip(results[r * 3+2], 0, 1)], factor=20)
+
 out_HR_np = np.clip(var_to_np(net(net_input)), 0, 1)
 result_deep_prior = put_in_center(out_HR_np, imgs['orig_np'].shape[1:])
 
+plot_image_grid('SR_RES', [out_HR_np], factor=4, nrow=1)
+
 print('Result PSNR:' + str(compare_psnr(imgs['HR_np'], out_HR_np)))
 # For the paper we acually took `_bicubic.png` files from LapSRN viewer and used `result_deep_prior` as our result
-plot_image_grid('SR_RES', [imgs['HR_np'],
-                 imgs['bicubic_np'],
-                 out_HR_np], factor=4, nrow=1)
+#plot_image_grid('SR_RES', [imgs['HR_np'],
+#                 imgs['bicubic_np'],
+#                 out_HR_np], factor=4, nrow=1)
