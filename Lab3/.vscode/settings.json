@@ -1,0 +1,4 @@
+{
+    "python.pythonPath": "${workspaceFolder}/lab3-env/bin/python",
+    "python.linting.enabled": false
+}
