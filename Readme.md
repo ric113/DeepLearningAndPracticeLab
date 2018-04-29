@@ -3,3 +3,4 @@
 * [Lab0 - Simple neural networks with backpropagation for “XOR”](./Lab0)
 * [Lab1 - Deep residual learning](./Lab1)
 * [Lab2 - Deep image prior](./Lab2)
+* [Lab3 - Caption generation with visual attention](./Lab3)
