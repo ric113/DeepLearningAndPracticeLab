@@ -5,7 +5,7 @@
 * [Lab3 - Caption generation with visual attention](./lab3_image_caption.pdf)
 
 ## Report
-* [Lab3 Report]()
+* [Lab3 Report](./Report.pdf)
 
 ## Resources
 * [GitHub - ImageCaptioning.pytorch](https://github.com/ruotianluo/ImageCaptioning.pytorch)
